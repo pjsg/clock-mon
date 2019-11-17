@@ -171,7 +171,16 @@ return function(close_cb)
             alarmstart(port, ip)
         end
     end)
-    s:listen(port)
-    print("TFTP server running on port "..tostring(port))
+    function startit()
+      s:listen(port)
+      print("TFTP server running on port "..tostring(port))
+    end
+
+    tmr.create():alarm(1000, tmr.ALARM_AUTO, function (t) 
+      if wifi.sta.getip() ~= nil then
+        startit()
+	t:stop()
+      end
+    end)
     return s
 end

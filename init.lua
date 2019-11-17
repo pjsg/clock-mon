@@ -1,6 +1,7 @@
 if file.exists("forcelfs.img") then
   file.remove("lfs.img")
   file.rename("forcelfs.img", "lfs.img")
+  rtcmem.write32(0, 0x12345678)
   local result = node.flashreload("lfs.img")
   print("Failed to flashreload", result)
 end
@@ -32,7 +33,9 @@ if rtcmem.read32(0) == 0x12345678 then
   end
 else
   -- fast reboot. probably not working
+  print("Fast reboot, probably not working....")
   pcall(function ()
     wifi.setmode(wifi.STATION)
+    dofile("tftpd.lua")()
   end)
 end
