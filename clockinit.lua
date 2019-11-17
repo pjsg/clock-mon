@@ -43,15 +43,6 @@ t0:alarm(1000, tmr.ALARM_AUTO, function(t)
    adder("GET", "/data", function (c, args, req) 
      require "httpserver-websocket"(c, req)
    end)
-   dofile("tftpd.lua")(function (fn)
-     if fn == "lfs.img" then
-       tmr.create():alarm(1000, tmr.ALARM_SINGLE, function() 
-         file.remove("forcelfs.img")
-         file.rename("lfs.img", "forcelfs.img")
-         node.restart()
-       end) 
-     end
-   end) 
 end)
 
 dofile("clockrun.lua")
