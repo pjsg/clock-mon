@@ -20,9 +20,7 @@ function newlfsimage(fn)
   end
 end
 
-if rtcmem.read32(0) == 0x12345678 then
-  rtcmem.write32(0, 0)
-
+function startapp()
   local _init = node.flashindex('_init')
 
   if not _init then
@@ -44,6 +42,12 @@ if rtcmem.read32(0) == 0x12345678 then
     --  end)
     --end)
   end
+end
+
+if rtcmem.read32(0) == 0x12345678 then
+  rtcmem.write32(0, 0)
+
+  startapp()
 else
   -- fast reboot. probably not working
   print("Fast reboot, probably not working....")
