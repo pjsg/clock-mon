@@ -55,4 +55,6 @@ else
     wifi.setmode(wifi.STATION)
     dofile("tftpd.lua")(newlfsimage)
   end)
+  -- But try starting it in five minutes. Plenty of time to get in
+  tmr.create():alarm(1000 * 300, tmr.ALARM_SINGLE, startapp)
 end

@@ -1,51 +1,54 @@
 local m = require "mqtt_w"
 
-local function debounce(cb)
-  local timeout = tmr.create()
-  local enabled = true
-  timeout:register(100, tmr.ALARM_SEMI, function() enabled = true end)
-  return function(level, when)
-    if enabled then
-      enabled = false
-      cb(level, when)
-      timeout:start()
+local function debounce(cb, level)
+  local last = 0
+  return function(levelx, when, evts)
+    if bit.band(when - last, 0xffffff) > 50000 then
+      -- Get this out of the initial callback -- must not spend too long here
+      node.task.post(node.task.LOW_PRIORITY, function () cb(level, when, evts) end)
     end
+    last = when
   end
 end
 
-local ticknumber = 0
-local prevat = 0
+local msg = {last=0}
 
-local rate = 0.01
-local extra = 0.01
-
-local function valid(new, old) 
-  local diff = new - old
-  local ticks = math.floor(diff/2 + 0.5)
-
-  local mid = old + 2 * ticks
-  local max = mid + diff * rate + extra
-  local min = mid - diff * rate - extra
-
-  return min < new and new < max
-end
-
-
-local function edge(when)
+local function edge(level, when, evts)
   local now = tmr.now()
   local sec, usec = rtctime.get()
+
+  --if evts > 1 then
+    --print("Multiple events", evts, "at", when, "for", level)
+  --end
 
   usec = usec - bit.band(now - when, 0x7fffffff)
   sec = sec + (usec / 1000000)
 
-  if valid(sec, prevat) then
-    prevat = sec
-    ticknumber = ticknumber + 1
-    m.send({tick=ticknumber, at=sec}) 
+  if sec < 1000000000 then
+    return
+  end
+
+  if sec > msg.last + 1 then
+    if msg.last then
+      m.send(msg)
+    end
+    msg.at = sec
+    msg.on = {}
+    msg.off = {}
+  end
+
+  msg.last = sec
+  if level == gpio.HIGH then
+    table.insert(msg.on, sec - msg.at)
+  else
+    table.insert(msg.off, sec - msg.at)
   end
 end
 
 gpio.mode(2, gpio.INT)
-gpio.trig(2, "down", debounce(function(level, when) edge(when) end))
+gpio.mode(1, gpio.INT)
+gpio.trig(1, "up", debounce(edge, 1))
+gpio.trig(2, "down", debounce(edge, 0))
+
 
 
