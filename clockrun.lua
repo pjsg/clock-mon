@@ -32,8 +32,8 @@ end
 
 
 local function edge(when)
-  now = tmr.now()
-  sec, usec = rtctime.get()
+  local now = tmr.now()
+  local sec, usec = rtctime.get()
 
   usec = usec - bit.band(now - when, 0x7fffffff)
   sec = sec + (usec / 1000000)
