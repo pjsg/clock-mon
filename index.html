@@ -1,0 +1,340 @@
+<html><head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sprintf/1.1.2/sprintf.min.js"></script>
+<style>
+body {
+  font-family: sans-serif;
+}
+.led {
+    height: 25px;
+    width: 25px;
+    background-color: #fff;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+#display {
+    border: 1px solid;
+    vertical-align: middle;
+}
+input.narrow {
+  width: 12em;
+}
+.runstopswitch {
+    position: relative; width: 100px;
+    -webkit-user-select:none; -moz-user-select:none; -ms-user-select: none;
+}
+.runstopswitch-checkbox {
+    display: none;
+}
+.runstopswitch-label {
+    display: block; overflow: hidden; cursor: pointer;
+    border: 2px solid #999999; border-radius: 20px;
+}
+.runstopswitch-inner {
+    display: block; width: 200%; margin-left: -100%;
+    transition: margin 0.3s ease-in 0s;
+}
+.runstopswitch-inner:before, .runstopswitch-inner:after {
+    display: block; float: left; width: 50%; height: 30px; padding: 0; line-height: 30px;
+    font-size: 14px; color: white; font-family: Trebuchet, Arial, sans-serif; font-weight: bold;
+    box-sizing: border-box;
+}
+.runstopswitch-inner:before {
+    content: "Run";
+    padding-left: 10px;
+    background-color: #34A7C1; color: #FFFFFF;
+}
+.runstopswitch-inner:after {
+    content: "Stop";
+    padding-right: 10px;
+    background-color: #EEEEEE; color: #999999;
+    text-align: right;
+}
+.runstopswitch-switch {
+    display: block; width: 18px; margin: 6px;
+    background: #FFFFFF;
+    position: absolute; top: 0; bottom: 0;
+    right: 66px;
+    border: 2px solid #999999; border-radius: 20px;
+    transition: all 0.3s ease-in 0s; 
+}
+.runstopswitch-checkbox:checked + .runstopswitch-label .runstopswitch-inner {
+    margin-left: 0;
+}
+.runstopswitch-checkbox:checked + .runstopswitch-label .runstopswitch-switch {
+    right: 0px; 
+}
+</style>
+<link href="https://cdn.jsdelivr.net/npm/jquery-btnswitch@1.0.1/dist/jquery.btnswitch.min.css" rel="stylesheet">
+</head><body>
+<script src="https://cdn.jsdelivr.net/npm/jquery-btnswitch@1.0.1/dist/jquery.btnswitch.min.js" integrity="sha256-Ixinrhgq/RaeE+r/AU5gsb0TSVOLL3i7KsFn/eudREc=" crossorigin="anonymous"></script>
+<h1>Clock</h1>
+
+<div>
+<span id=led0 class="led"></span>
+<canvas id=display width=128 height=64 ></canvas>
+<span id=led1 class="led"/></span>
+<span id=led2 class="led"/></span>
+</div>
+
+<br>
+
+<div class="runstopswitch">
+    <input type="checkbox" name="runstopswitch" class="runstopswitch-checkbox" id="runstop" checked>
+    <label class="runstopswitch-label" for="runstop">
+        <span id="rss-inner" class="runstopswitch-inner"></span>
+        <span class="runstopswitch-switch"></span>
+    </label>
+</div>
+
+<span id="params" style="display: none"></span>
+
+<br>
+<div id='setter' style='visibility: hidden'>
+Clock: <input class=narrow id=hms type=text></input>
+<button type="button" id="set">Set</button>
+<br>
+MAC: <span id="mac"></span><br>
+Timezone: <span id="tz"></span><br>
+Last sync: <span id="lastsync"></span><br>
+Now: <span id="now"></span><br>
+FW: <span id="fw"></span><br>
+HW: <span id="hw"></span><br>
+</div>
+<script>
+var sample = 
+{
+    "mac": "5c:cf:7f:23:82:50",
+    "config": {
+        "tz": "eastern"
+    },
+    "time": [
+        1483224410,
+        318719,
+        -12044
+    ],
+    "running": 1,
+    "hms": 20810,
+    "freemem": 15584,
+    "ntp": {
+        "usecs": 720661,
+        "secs": 1483223883,
+        "info": {
+            "pending_leap": 1,
+            "stratum": 1,
+            "offset_us": -136,
+            "root_maxerr_us": 457,
+            "root_dispersion_us": 0,
+            "root_delay_us": 0,
+            "delay_us": 915,
+            "leap": 1
+        },
+        "server": "192.168.1.21"
+    }
+};
+
+var ss = document.styleSheets;
+
+var rssBefore;
+var rssAfter;
+
+for (i = 0; i < ss.length; i++) {
+  var rules = ss[i];
+  if (!rules.href) {
+    for (j = 0; j < rules.cssRules.length; j++) {
+      var r = rules.cssRules[j];
+      if (r.selectorText == ".runstopswitch-inner::before") {
+        rssBefore = r.style;
+      }
+      if (r.selectorText == ".runstopswitch-inner::after") {
+        rssAfter = r.style;
+      }
+    }
+  }
+}
+
+var display;
+
+function rleDecode(ctx, b) {
+  ctx.fillStyle = 'rgb(255,255,255)';
+  ctx.fillRect(0, 0, 128, 64);
+
+  ctx.translate(64, 32);
+  ctx.rotate(Math.PI);
+  ctx.translate(-64, -32);
+  ctx.beginPath();
+  var row = 0;
+  for (var i = 0; i < b.length; ) {
+    var ents = b.charCodeAt(i++);
+    for (var e = 0; e < ents; e++) {
+      var col = b.charCodeAt(i++);
+      var npix = b.charCodeAt(i++);
+
+      ctx.moveTo(col, row);
+      ctx.lineTo(col + npix, row);
+    }
+
+    row++;
+  }
+  ctx.stroke();
+  ctx.resetTransform();
+}
+
+function leftFillNum(num, width){
+  return num
+    .toString()
+    .padStart(width,0)
+}
+
+
+var pps = 1;
+var lastpos = 0;
+
+var buttonstate = 0;    // -1 is stopping, +1 is starting
+
+function setRunStop(state) {
+  var ll = "state=" + state + " bs=" + buttonstate;
+  $("#params").text(ll);
+  $("#runstop").prop('checked', state);
+  if (buttonstate < 0) {
+    if (!state) {
+      buttonstate = 0;
+    }
+    rssBefore.content = "\"Stopping\"";
+    rssAfter.content = "\"Stop\"";
+  } else if (buttonstate > 0) {
+    if (state) {
+      buttonstate = 0;
+    }
+    rssBefore.content = "\"Run\"";
+    rssAfter.content = "\"Starting\"";
+  }
+
+  if (buttonstate == 0) {
+    rssBefore.content = "\"Run\"";
+    rssAfter.content = "\"Stop\"";
+  }
+}
+
+function handleResponse( result ) {
+      if (result.display) {
+        if (result.first) {
+          display = atob(result.display);
+        } else {
+          display = display + atob(result.display);
+        }
+        if (result.last) {
+          var canvas = document.getElementById('display');
+          var ctx = canvas.getContext('2d');
+          rleDecode(ctx,display);
+        }
+      } else {
+        $( "#mac" ).text(result.mac);
+        $( "#tz" ).text(result.config.tz);
+        $("#lastsync").text(new Date(1000*result.ntp.secs + result.ntp.usecs / 1000).toISOString());
+        $("#now").text(new Date(1000*(result.time[0]) + result.time[1] / 1000).toISOString());
+        setRunStop(result.running);
+        $('#setter').css('visibility', !result.running ? 'visible' : 'hidden');
+        for (var i = 0; i < 3; i++) {
+          $('#led' + i).css('background-color', '#' + result.leds[i]);
+        }
+        if (result.pos != lastpos) {
+          var hms = "" + result.hmst[0] + ":" + leftFillNum(result.hmst[1], 2) + ":" + leftFillNum(result.hmst[2], 2);
+          if (result.boardConfig.pps > 1) {
+            hms = hms + "." + leftFillNum(result.hmst[3], 3);
+          }
+          $("#hms").val(hms);
+          lastpos = result.pos;
+        }
+        $('#hw').text(result.hw_build);
+        var fw = new Date(1000 * result.sw_build);
+        $('#fw').text(sprintf("%04d-%02d-%02d %02d:%02d",
+           fw.getUTCFullYear(), 
+           fw.getUTCMonth() + 1, 
+           fw.getUTCDate(), 
+           fw.getUTCHours(), 
+           fw.getUTCMinutes() 
+        ));
+        pps = result.boardConfig.pps;
+      }
+}
+
+var timeout_error;
+var timeout_close;
+
+function refresh() {
+    if (timeout_close) {
+      window.clearTimeout(timeout_close);
+      timeout_close = 0;
+    }
+    if (timeout_error) {
+      window.clearTimeout(timeout_error);
+      timeout_error = 0;
+    }
+    var ws = new WebSocket("ws://" + window.location.host + "/data");
+    ws.onmessage = function(event) {
+      handleResponse(JSON.parse(event.data));
+    };
+    ws.onerror = function() {
+      timeout_error = window.setTimeout(refresh, 5000);
+    };
+    ws.onclose = function() {
+      timeout_close = window.setTimeout(refresh, 5000);
+    };
+}
+
+function addleds() {
+  var leds = $('#leds');
+  for (var i = 0; i < 3; i++) {
+    leds.append($('<span class=led id=led' + i + '></span>'));
+  }
+}
+
+$(document).ready(function() {
+  refresh();
+});
+$('#hms').on('change', function() {
+  var mom = moment.utc($('#hms').val(), 'hh:mm:ss.SSS');
+
+  $('#set').prop('disabled', !mom.isValid());
+});
+
+$("#set").on('click', function() {
+  var mom = moment.utc($('#hms').val(), 'hh:mm:ss.SSS');
+  var val = mom.valueOf() % 86400000;
+  val = Math.round(val * pps / 1000);
+  $.ajax({
+    url: "/set?pos=" + val,
+    method: "POST",
+    success: handleResponse
+  });
+});
+function doStop() {
+  buttonstate = -1;
+  setRunStop(true);
+  $.ajax({
+    url: "/set?stop=1",
+    method: "POST",
+  });
+};
+function doStart() {
+  buttonstate = 1;
+  setRunStop(false);
+  $.ajax({
+    url: "/set?start=1",
+    method: "POST",
+  });
+};
+$('#runstop').on('click', function() {
+  if ($(this).is(':checked')) {
+    doStart();
+  } else {
+    doStop();
+  }
+  return false;
+});
+</script>
+</body></html>

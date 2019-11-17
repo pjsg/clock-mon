@@ -1,0 +1,12 @@
+#!/bin/sh
+
+rm -f LFS_*img
+
+rm __*lua
+
+./encap_file.pl *.html
+
+docker run --dns=8.8.8.8 --rm -ti -v ~/nodemcu-firmware:/opt/nodemcu-firmware -v `pwd`:/opt/lua marcelstoer/nodemcu-build lfs-image
+
+mv LFS_f*img lfs.img
+

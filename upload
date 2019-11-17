@@ -1,0 +1,4 @@
+#!/bin/bash
+
+tftp -m binary $1 -c put init.lua
+tftp -m binary $1 -c put LFS_i*img lfs.img
