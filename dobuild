@@ -8,5 +8,5 @@ rm __*lua
 
 docker run --dns=8.8.8.8 --rm -ti -v ~/nodemcu-firmware:/opt/nodemcu-firmware -v `pwd`:/opt/lua marcelstoer/nodemcu-build lfs-image
 
-mv LFS_f*img lfs.img
+mv -f LFS_f*img lfs.img
 
