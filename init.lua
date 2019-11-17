@@ -10,6 +10,16 @@ tmr.create():alarm(300 * 1000, tmr.ALARM_SINGLE, function()
   rtcmem.write32(0, 0x12345678)
 end)
 
+function newlfsimage(fn)
+  if fn == "lfs.img" then
+    tmr.create():alarm(1000, tmr.ALARM_SINGLE, function() 
+      file.remove("forcelfs.img")
+      file.rename("lfs.img", "forcelfs.img")
+      node.restart()
+    end) 
+  end
+end
+
 if rtcmem.read32(0) == 0x12345678 then
   rtcmem.write32(0, 0)
 
@@ -23,6 +33,9 @@ if rtcmem.read32(0) == 0x12345678 then
 
     wifi.setmode(wifi.STATION)
     dofile("clockinit.lua")
+    pcall(function ()
+      dofile("tftpd.lua")(newlfsimage)
+    end)
 
     --enduser_setup.start(function() 
     --  tmr.create():alarm(200, tmr.ALARM_SINGLE, function () 
@@ -36,6 +49,6 @@ else
   print("Fast reboot, probably not working....")
   pcall(function ()
     wifi.setmode(wifi.STATION)
-    dofile("tftpd.lua")()
+    dofile("tftpd.lua")(newlfsimage)
   end)
 end
