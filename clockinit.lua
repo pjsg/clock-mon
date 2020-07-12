@@ -1,4 +1,5 @@
 local config = require "config"("config")
+local m = require "mqtt_w"
 
 lastNtpResult = {}
 
@@ -7,12 +8,24 @@ local function printrtc()
   print ('rate', rate)
 end
 
-local function startsync()
+local function startsync(cb)
     sntp.sync({"192.168.1.21", "0.nodemcu.pool.ntp.org", "1.nodemcu.pool.ntp.org", "2.nodemcu.pool.ntp.org"
     }, function (a,b, c, d ) 
       lastNtpResult = { secs=a, usecs=b, server=c, info=d }
       print(a,b, c, d['offset_us']) printrtc() 
+      m.send({ntp=lastNtpResult})
+      cb()
     end, function(e) print (e) end, 1)
+end
+
+local function doOnce(cb)
+  local done = false
+  return function ()
+    if not done then
+      cb()
+      done = true
+    end
+  end
 end
 
 syslog = (require "syslog")(config.syslog_("192.168.1.68"))
@@ -36,7 +49,8 @@ t0:alarm(1000, tmr.ALARM_AUTO, function(t)
    print ("got ip")
    t:unregister()
    syslog:send("Booted: " .. sjson.encode({node.bootreason()}))
-   startsync()
+   node.setcpufreq(node.CPU160MHZ)
+   startsync(doOnce(function() dofile("clockrun.lua") end))
    mdns.register(string.format("grandfather-%06x", node.chipid()), { service="http", port=80 })
    local adder = dofile("httpserver.lua")
    dofile("webserver.lua").register(adder)
@@ -44,6 +58,4 @@ t0:alarm(1000, tmr.ALARM_AUTO, function(t)
      require "httpserver-websocket"(c, req)
    end)
 end)
-
-dofile("clockrun.lua")
 

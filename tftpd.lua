@@ -178,7 +178,7 @@ return function(close_cb)
 
     tmr.create():alarm(1000, tmr.ALARM_AUTO, function (t) 
       if wifi.sta.getip() ~= nil then
-        startit()
+        pcall(startit)
 	t:stop()
       end
     end)
