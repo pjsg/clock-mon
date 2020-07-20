@@ -1,4 +1,9 @@
 local m = require "mqtt_w"
+local rate = require 'rate'
+
+local week = rate:new({size=7 * 24 + 1})
+local hour = rate:new({size=181, every=60, overflow=week})
+local minute = rate:new({size=61, every=30, overflow=hour})
 
 local function debounce(cb, level)
   local last = 0
@@ -35,7 +40,8 @@ local function edge(level, when, evts)
     end
     msg.at = sec
     msg.edge = {}
-    -- msg.off = {}
+
+    minute:push(sec)
   end
 
   msg.last = sec
@@ -55,5 +61,11 @@ gpio.trig(2, "down", debounce(edge, 0))
 local sec, usec = rtctime.get()
 m.send(string.format('{"booted":%.6f}', sec + usec / 1000000))
 
+function getstats() 
+  return {last=minute:last(), minute=minute:estimate(), hour=hour:estimate()}
+end
 
+function gethistory() 
+  return {minute=minute:getHistory(), hour=hour:getHistory(30), week=week:getHistory(1800)}
+end
 

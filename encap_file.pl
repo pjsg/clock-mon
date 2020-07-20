@@ -12,7 +12,7 @@ while (my $fn = shift @ARGV) {
 
   open(IN, "<$fn") || die "Cannot open $fn: $!";
   $fn =~ s/\./_/g;
-  open(OUT, ">__$fn.lua") || die "Cannot open output __$fn.lua: $!";
+  open(OUT, ">f_$fn.lua") || die "Cannot open output f_$fn.lua: $!";
 
   print OUT "local data = {\n";
 

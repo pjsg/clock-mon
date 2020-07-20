@@ -30,7 +30,7 @@ end
 
 syslog = (require "syslog")(config.syslog_("192.168.1.68"))
 
-node.egc.setmode(node.egc.ON_ALLOC_FAILURE)
+-- node.egc.setmode(node.egc.ON_ALLOC_FAILURE)
 
 if true then
   dprint = function() end
@@ -50,10 +50,10 @@ t0:alarm(1000, tmr.ALARM_AUTO, function(t)
    t:unregister()
    syslog:send("Booted: " .. sjson.encode({node.bootreason()}))
    node.setcpufreq(node.CPU160MHZ)
-   startsync(doOnce(function() dofile("clockrun.lua") end))
+   startsync(doOnce(function() require("clockrun") end))
    mdns.register(string.format("grandfather-%06x", node.chipid()), { service="http", port=80 })
-   local adder = dofile("httpserver.lua")
-   dofile("webserver.lua").register(adder)
+   local adder = require("httpserver")
+   require("webserver").register(adder)
    adder("GET", "/data", function (c, args, req) 
      require "httpserver-websocket"(c, req)
    end)

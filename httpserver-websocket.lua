@@ -65,16 +65,13 @@ end
 
 local guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 local function acceptKey(key)
-  return crypto.toBase64(crypto.hash("sha1", key .. guid))
+  return encoder.toBase64(crypto.hash("sha1", key .. guid))
 end
 
 return function (connection, payload)
-  register_object('websocket-connection', connection)
   local buffer = false
   local socket = {}
-  register_object('websocket-socket', socket)
   local queue = {}
-  register_object('websocket-queue', queue)
   local waiting = false
   local function onSend(c)
     while queue[1] do

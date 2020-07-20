@@ -32,7 +32,7 @@ local function fileReader(fn)
     return nil
   end
 
-  return function() 
+  return function()
     local buf = f:read(1024)
     if not buf then
       f:close()
@@ -47,7 +47,7 @@ local function getReader(fn)
     return result
   end
 
-  local ok, result = pcall(require, "__" .. string.gsub(fn, "[.]", "_"))
+  local ok, result = pcall(require, "f_" .. string.gsub(fn, "[.]", "_"))
   if ok then
     return result()
   end

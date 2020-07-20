@@ -3,6 +3,7 @@
 rm -f LFS_*img
 
 rm __*lua
+rm f_*lua
 
 ./encap_file.pl *.html
 
