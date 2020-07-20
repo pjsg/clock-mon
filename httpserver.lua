@@ -8,7 +8,7 @@ local function sendDocument(conn, fn)
     conn:on('sent', function (c)
       c:close()
     end)
-    return
+    return true
   end
 
   conn:on('sent', function(c)
@@ -22,6 +22,8 @@ local function sendDocument(conn, fn)
 
   local buf = fn()
   conn:send(buf)
+
+  return true
 end
 
 -- returns a function that reads blocks of the file and then nil
@@ -54,7 +56,12 @@ local function getReader(fn)
 end
 
 function sendfile(conn, fn)
-  sendDocument(conn, getReader(fn))
+  local rdr = getReader(fn)
+  if rdr then
+    return sendDocument(conn, rdr)
+  end
+
+  return false
 end
 
 H["GET/"] = function(conn)
@@ -79,7 +86,10 @@ local function onNewConnection(conn)
         collectgarbage()
         local f = (H[method .. path])
         if f == nil then
-           sendfile(c, "notfound.html")
+           path = string.sub(path, 2)
+           if not sendfile(c, path) then
+             sendfile(c, "notfound.html")
+           end
         else
            f(c, _GET, request)
         end        

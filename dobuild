@@ -2,10 +2,9 @@
 
 rm -f LFS_*img
 
-rm __*lua
 rm f_*lua
 
-./encap_file.pl *.html
+./encap_file.pl *.html *.ico
 
 docker run --dns=8.8.8.8 --rm -ti -v ~/nodemcu-firmware:/opt/nodemcu-firmware -v `pwd`:/opt/lua marcelstoer/nodemcu-build lfs-image
 

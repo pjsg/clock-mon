@@ -6,6 +6,7 @@ use IO::File;
 
 my %types = (
   html => 'text/html',
+  ico => 'image/x-icon',
 );
 
 while (my $fn = shift @ARGV) {

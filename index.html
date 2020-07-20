@@ -128,7 +128,7 @@ function handleResponse( result ) {
         if (result.stats.hour) {
           $('#hour').text(sprintf("%.6f", result.stats.hour));
           if (chartDataWeek) {
-            if (sampleHour % 60 == 0) {
+            if (sampleHour % 60 == 0 && sample % 30 == 0) {
               chartDataWeek.addRow([sampleWeek, result.stats.hour]);
               sampleWeek = sampleWeek + 1;
               while (chartDataWeek.getNumberOfRows() > 1000) {
@@ -182,9 +182,15 @@ function refresh() {
       handleResponse(JSON.parse(event.data));
     };
     ws.onerror = function() {
+      ws.onerror = null;
+      ws.onclose = null;
+      ws.close();
       timeout_error = window.setTimeout(refresh, 5000);
     };
     ws.onclose = function() {
+      ws.onerror = null;
+      ws.onclose = null;
+      ws.close();
       timeout_close = window.setTimeout(refresh, 5000);
     };
 }
