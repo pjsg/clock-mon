@@ -33,9 +33,9 @@ input.narrow {
 <tr><td>Minute</td><td align=right><span id='minute'></span></td></tr>
 <tr><td>Hour</td><td align=right><span id='hour'></span></td></tr>
 </table>
-<div id="minute_chart" style="height:400px"></div>
-<div id="hour_chart" style="height: 400px"></div>
-<div id="week_chart" style="height: 400px"></div>
+<div id="minute_chart" style="height:400px; width:100%"></div>
+<div id="hour_chart" style="height: 400px; width:100%"></div>
+<div id="week_chart" style="height: 400px; width:100%"></div>
 <script>
 
 function leftFillNum(num, width){
@@ -46,18 +46,20 @@ function leftFillNum(num, width){
 
 var chartWeek;
 var chartDataWeek;
+var lastWeek = 0;
 var sampleWeek = 0;
 var chartHour;
 var chartDataHour;
+var lastHour = 0;
 var sampleHour = 0;
 var chart;
 var chartData;
-var sample = 0;
+var last = 0;
 
 function redrawWeek() {
         var options = {
           hAxis: {
-            title: 'Time (hours)'
+            title: 'Time'
           },
           vAxis: {
             title: 'Tick period'
@@ -65,13 +67,15 @@ function redrawWeek() {
           backgroundColor: '#f1f8e9'
         };
 
-  chartWeek.draw(chartDataWeek, options);
+  if (chartDataWeek.getNumberOfRows() > 0) {
+    chartWeek.draw(chartDataWeek, options);
+  }
 }
 
 function redrawHour() {
         var options = {
           hAxis: {
-            title: 'Time (minutes)'
+            title: 'Time'
           },
           vAxis: {
             title: 'Tick period'
@@ -79,13 +83,15 @@ function redrawHour() {
           backgroundColor: '#f1f8e9'
         };
 
-  chartHour.draw(chartDataHour, options);
+  if (chartDataHour.getNumberOfRows() > 0) {
+    chartHour.draw(chartDataHour, options);
+  }
 }
 
 function redraw() {
         var options = {
           hAxis: {
-            title: 'Time (ticks -- 2 seconds)'
+            title: 'Time'
           },
           vAxis: {
             title: 'Tick period'
@@ -93,7 +99,13 @@ function redraw() {
           backgroundColor: '#f1f8e9'
         };
 
-  chart.draw(chartData, options);
+  if (chartData.getNumberOfRows() > 0) {
+    chart.draw(chartData, options);
+  }
+}
+
+function dt(secs) {
+  return new Date(secs * 1000)
 }
 
 function handleResponse( result ) {
@@ -101,24 +113,28 @@ function handleResponse( result ) {
         $('#last').text('-');
         $('#minute').text('-');
         $('#hour').text('-');
+        var now = result.stats.now;
         if (result.stats.last) {
           $('#last').text(sprintf("%.6f", result.stats.last));
           if (chartData) {
-            chartData.addRow([sample, result.stats.last]);
-            sample = sample + 1;
-            while (chartData.getNumberOfRows() > 1000) {
-              chartData.removeRow(0);
+            if (now != last) {
+              chartData.addRow([dt(now), result.stats.last]);
+              last = now;
+              while (chartData.getNumberOfRows() > 2000) {
+                chartData.removeRow(0);
+              }
+              redraw();
             }
-            redraw();
           }
         }
         if (result.stats.minute) {
           $('#minute').text(sprintf("%.6f", result.stats.minute));
           if (chartDataHour) {
-            if (sample % 30 == 0) {
-              chartDataHour.addRow([sampleHour, result.stats.minute]);
-              sampleHour = sampleHour + 1;
-              while (chartDataHour.getNumberOfRows() > 1000) {
+            sampleHour = sampleHour + 1;
+            if (sampleHour % 30 == 0) {
+              chartDataHour.addRow([dt(now), result.stats.minute]);
+              lastHour = now;
+              while (chartDataHour.getNumberOfRows() > 2000) {
                 chartDataHour.removeRow(0);
               }
               redrawHour();
@@ -128,10 +144,11 @@ function handleResponse( result ) {
         if (result.stats.hour) {
           $('#hour').text(sprintf("%.6f", result.stats.hour));
           if (chartDataWeek) {
-            if (sampleHour % 60 == 0 && sample % 30 == 0) {
-              chartDataWeek.addRow([sampleWeek, result.stats.hour]);
-              sampleWeek = sampleWeek + 1;
-              while (chartDataWeek.getNumberOfRows() > 1000) {
+            sampleWeek = sampleWeek + 1;
+            if (sampleWeek % 300 == 0) {
+              chartDataWeek.addRow([dt(now), result.stats.hour]);
+              lastWeek = now;
+              while (chartDataWeek.getNumberOfRows() > 2000) {
                 chartDataWeek.removeRow(0);
               }
               redrawWeek();
@@ -140,12 +157,14 @@ function handleResponse( result ) {
         }
       }
       if (result.history) {
+        var now = result.history.now;
         if (result.history.minute) {
           if (chartData) {
             var arr = result.history.minute;
+            last = now - 2 * arr.length;
             for (var i = 0; i < arr.length; i++) {
-              chartData.addRow([sample, arr[i]]);
-              sample = sample + 1;
+              last = last + 2;
+              chartData.addRow([dt(last), arr[i]]);
             }
             redraw();
           }
@@ -153,9 +172,10 @@ function handleResponse( result ) {
         if (result.history.hour) {
           if (chartDataHour) {
             var arr = result.history.hour;
+            lastHour = now - 60 * arr.length;
             for (var i = 0; i < arr.length; i++) {
-              chartDataHour.addRow([sampleHour, arr[i]]);
-              sampleHour = sampleHour + 1;
+              lastHour = lastHour + 60;
+              chartDataHour.addRow([dt(lastHour), arr[i]]);
             }
             redrawHour();
           }
@@ -163,9 +183,10 @@ function handleResponse( result ) {
         if (result.history.week) {
           if (chartDataWeek) {
             var arr = result.history.week;
+            lastWeek = now - 3600 * arr.length;
             for (var i = 0; i < arr.length; i++) {
-              chartDataWeek.addRow([sampleWeek, arr[i]]);
-              sampleWeek = sampleWeek + 1;
+              lastWeek = lastWeek + 3600;
+              chartDataWeek.addRow([dt(lastWeek), arr[i]]);
             }
             redrawWeek();
           }
@@ -197,7 +218,7 @@ function refresh() {
 
 function drawChart() {
         var data = new google.visualization.DataTable();
-        data.addColumn('number', 'Sample');
+        data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
 
         chart = new google.visualization.LineChart(document.getElementById('minute_chart'));
@@ -205,7 +226,7 @@ function drawChart() {
         redraw();
 
         data = new google.visualization.DataTable();
-        data.addColumn('number', 'Sample');
+        data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
 
         chartHour = new google.visualization.LineChart(document.getElementById('hour_chart'));
@@ -213,7 +234,7 @@ function drawChart() {
         redrawHour();
 
         data = new google.visualization.DataTable();
-        data.addColumn('number', 'Sample');
+        data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
 
         chartWeek = new google.visualization.LineChart(document.getElementById('week_chart'));
@@ -227,7 +248,7 @@ function startup() {
 }
 
 $(document).ready(function() {
-  google.charts.load('current', {packages: ['corechart', 'line']});
+  google.charts.load('upcoming', {packages: ['corechart', 'line']});
   google.charts.setOnLoadCallback(startup);
 });
 </script>

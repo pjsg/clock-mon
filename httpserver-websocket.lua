@@ -144,7 +144,7 @@ return function (connection, payload)
       "HTTP/1.1 101 Switching Protocols\r\n" ..
       "Upgrade: websocket\r\nConnection: Upgrade\r\n" ..
       "Sec-WebSocket-Accept: " .. acceptKey(key) .. "\r\n\r\n",
-      function () serving(socket) end)
+      function () serving.serve(socket) end)
     buffer = ""
   else
     connection:send(

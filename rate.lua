@@ -61,6 +61,16 @@ function Rate:last()
     return nil
   end
 end
+
+function Rate:now()
+  local ok, res = pcall(function() return self.prev[#self.prev] end)
+  if ok then
+    return res
+  else
+    return nil
+  end
+end
+
 Rate.__index = Rate
 
 function M:new(o) 

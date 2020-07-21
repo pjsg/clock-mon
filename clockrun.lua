@@ -1,8 +1,9 @@
 local m = require "mqtt_w"
 local rate = require 'rate'
+local broadcast = require '_data'.broadcast
 
-local week = rate:new({size=7 * 24 + 1})
-local hour = rate:new({size=181, every=60, overflow=week})
+local week = rate:new({size=3 * 24 + 1})
+local hour = rate:new({size=121, every=60, overflow=week})
 local minute = rate:new({size=61, every=30, overflow=hour})
 
 local function debounce(cb, level)
@@ -42,6 +43,8 @@ local function edge(level, when, evts)
     msg.edge = {}
 
     minute:push(sec)
+
+    broadcast()
   end
 
   msg.last = sec
@@ -62,10 +65,16 @@ local sec, usec = rtctime.get()
 m.send(string.format('{"booted":%.6f}', sec + usec / 1000000))
 
 function getstats() 
-  return {last=minute:last(), minute=minute:estimate(), hour=hour:estimate()}
+  return {now=minute:now(), last=minute:last(), minute=minute:estimate(), hour=hour:estimate()}
 end
 
-function gethistory() 
-  return {minute=minute:getHistory(), hour=hour:getHistory(30), week=week:getHistory(1800)}
+function gethistory(which) 
+  if which == "minute" then
+    return {now=minute:now(), minute=minute:getHistory()}
+  elseif which == "hour" then
+    return {now=hour:now(), hour=hour:getHistory(30)}
+  else
+    return {now=week:now(), week=week:getHistory(1800)}
+  end
 end
 
