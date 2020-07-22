@@ -17,7 +17,12 @@ M.serve = function (socket)
 end
 
 M.broadcast = function(msg)
-  local data = sjson.encode({stats=getstats()})
+  if not msg then
+    msg = {stats=getstats()}
+  end
+  if type(msg) ~= "string" then
+    msg = sjson.encode(msg)
+  end
   for k, v in pairs(sockets) do
     pcall(function() k.send(data, 1) end)
   end

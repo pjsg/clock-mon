@@ -1,6 +1,7 @@
 local m = require "mqtt_w"
 local rate = require 'rate'
 local broadcast = require '_data'.broadcast
+local ds18b20 = require 'ds18b20'
 
 local week = rate:new({size=3 * 24 + 1})
 local hour = rate:new({size=121, every=60, overflow=week})
@@ -77,4 +78,15 @@ function gethistory(which)
     return {now=week:now(), week=week:getHistory(1800)}
   end
 end
+
+tmr.create():alarm(60 * 1000, tmr.ALARM_AUTO, function()
+  pcall(function() 
+    ds18b20.read_temp(function (result) 
+      local sec, usecs = rtctime.get()
+      local data = sjson.encode({temp=result, now=secs + usecs / 1000000})
+      m.send(data)
+      broadcast(data)
+    end, nil, ds18b20.F)
+  end)
+end)
 
