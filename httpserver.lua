@@ -2,7 +2,7 @@
 
 local H = {}
 
-local function sendDocument(conn, fn)
+local function sendDocument(conn, fn, mimeType)
   if fn == nil then
     conn:send("HTTP/1.0 404 Not found\r\n\r\n")
     conn:on('sent', function (c)
@@ -20,7 +20,12 @@ local function sendDocument(conn, fn)
      end
   end)
 
-  local buf = fn()
+  local buf
+  if mimeType then
+    buf = "HTTP/1.0 200 OK\r\nContent-type: " .. mimeType .. "\r\n\r\n"
+  else
+    buf = fn()
+  end
   conn:send(buf)
 
   return true
@@ -55,17 +60,21 @@ local function getReader(fn)
   end
 end
 
-function sendfile(conn, fn)
+function sendfile(conn, fn, mimeType)
   local rdr = getReader(fn)
   if rdr then
-    return sendDocument(conn, rdr)
+    return sendDocument(conn, rdr, mimeType)
   end
 
   return false
 end
 
 H["GET/"] = function(conn)
-  sendfile(conn, "index.html")
+  return sendfile(conn, "index.html")
+end
+
+H["GET/history"] = function(conn)
+  return sendfile(conn, "hour.log", "text/plain")
 end
 
 local srv = net.createServer(net.TCP)

@@ -24,7 +24,7 @@ M.broadcast = function(msg)
     msg = sjson.encode(msg)
   end
   for k, v in pairs(sockets) do
-    pcall(function() k.send(data, 1) end)
+    pcall(function() k.send(msg, 1) end)
   end
 end
 

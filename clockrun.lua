@@ -1,7 +1,7 @@
 local m = require "mqtt_w"
 local rate = require 'rate'
 local broadcast = require '_data'.broadcast
-local ds18b20 = require 'ds18b20'
+local ok, ds18b20 = pcall(require,'ds18b20')
 
 local week = rate:new({size=3 * 24 + 1})
 local hour = rate:new({size=121, every=60, overflow=week})
@@ -19,14 +19,15 @@ local function debounce(cb, level)
 end
 
 local msg = {last=0}
+local skip = 10
+
+local hourlog = file.open("hour.log", "a+")
+
+local hourtime = 1200
 
 local function edge(level, when, evts)
   local now = tmr.now()
   local sec, usec = rtctime.get()
-
-  --if evts > 1 then
-    --print("Multiple events", evts, "at", when, "for", level)
-  --end
 
   usec = usec - bit.band(now - when, 0x7fffffff)
   sec = sec + (usec / 1000000)
@@ -36,25 +37,32 @@ local function edge(level, when, evts)
   end
 
   if sec > msg.last + 1 then
-    if msg.last > 0 then
+    if msg.last > 0 and skip < 0 then
       local s = string.format('{"at":%.6f,"edge":[%s]}', msg.at, table.concat(msg.edge, ','))
       m.send(s)
     end
     msg.at = sec
     msg.edge = {}
 
-    minute:push(sec)
+    if skip < 0 then
+      minute:push(sec)
 
-    broadcast()
+      broadcast()
+      hourtime = hourtime - 1
+      if hourtime <= 0 then
+        hourtime = 300
+        hourlog:writeline(sjson.encode({at=msg.at, rate=hour:estimate()}))
+        hourlog:flush()
+      end
+    end
   end
 
   msg.last = sec
-  table.insert(msg.edge, string.format("%.6f", sec - msg.at))
-  -- if level == gpio.HIGH then
-  --   table.insert(msg.on, sec - msg.at)
-  -- else
-  --   table.insert(msg.off, sec - msg.at)
-  -- end
+  if skip < 0 then
+    table.insert(msg.edge, string.format("%.6f", sec - msg.at))
+  else
+    skip = skip - 1
+  end
 end
 
 gpio.mode(2, gpio.INT)

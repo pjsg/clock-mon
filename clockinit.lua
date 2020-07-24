@@ -9,7 +9,7 @@ local function printrtc()
 end
 
 local function startsync(cb)
-    sntp.sync({"192.168.1.21", "0.nodemcu.pool.ntp.org", "1.nodemcu.pool.ntp.org", "2.nodemcu.pool.ntp.org"
+    sntp.sync({"192.168.1.20", "192.168.1.21", "0.nodemcu.pool.ntp.org", "1.nodemcu.pool.ntp.org", "2.nodemcu.pool.ntp.org"
     }, function (a,b, c, d ) 
       lastNtpResult = { secs=a, usecs=b, server=c, info=d }
       print(a,b, c, d['offset_us']) printrtc() 
