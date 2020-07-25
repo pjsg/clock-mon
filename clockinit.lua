@@ -8,12 +8,21 @@ local function printrtc()
   print ('rate', rate)
 end
 
+local clock_data = file.getcontents("clock.data");
+
 local function startsync(cb)
     sntp.sync({"192.168.1.20", "192.168.1.21", "0.nodemcu.pool.ntp.org", "1.nodemcu.pool.ntp.org", "2.nodemcu.pool.ntp.org"
     }, function (a,b, c, d ) 
       lastNtpResult = { secs=a, usecs=b, server=c, info=d }
       print(a,b, c, d['offset_us']) printrtc() 
       m.send({ntp=lastNtpResult})
+      if clock_data then
+        rtctime.set(nil, nil, clock_data.rate)
+        clock_data = nil
+      else
+        local _, _, rate = rtctime.get()
+        file.putcontents("clock.data", sjson.encode({rate=rate}))
+      end
       cb()
     end, function(e) print (e) end, 1)
 end

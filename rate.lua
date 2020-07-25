@@ -31,14 +31,15 @@ end
 function Rate:estimate() 
   local ok, res = pcall(function() 
   local last = #self.prev
-  if last > self.every then
-    last = self.every + 1
+  local first = last - self.every - 1
+  if first < 1 then
+    first = 1
   end
-  local duration = self.prev[last] - self.prev[1]
+  local duration = self.prev[last] - self.prev[first]
   local step = self.prev[2] - self.prev[1]
   -- this should be roughly a multiple of 2
   step = math.floor((step + 1) / 2) * 2
-  return duration / (step * (last - 1))
+  return duration / (step * (last - first))
   end)
   if ok then
     return res

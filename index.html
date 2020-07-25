@@ -75,11 +75,15 @@ function redrawWeek() {
 
 function redrawHour() {
         var options = {
+          title: 'Average tick error over previous minute',
           hAxis: {
             title: 'Time'
           },
           vAxis: {
             title: 'Tick error (ppm)'
+          },
+          legend: {
+            position: 'none',
           },
           backgroundColor: '#f1f8e9'
         };
@@ -92,11 +96,15 @@ function redrawHour() {
 
 function redraw() {
         var options = {
+          title: 'Instantaneous tick error over previous tick',
           hAxis: {
             title: 'Time'
           },
           vAxis: {
             title: 'Tick error (ppm)'
+          },
+          legend: {
+            position: 'none',
           },
           backgroundColor: '#f1f8e9'
         };
@@ -213,6 +221,7 @@ function loadHistory(next) {
         console.log("Failed to parse '" + lines[i] + "'");
       }
     }
+    redrawWeek();
     next();
   });
 }
@@ -252,7 +261,7 @@ function drawChart() {
         data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
 
-        chartHour = new google.visualization.LineChart(document.getElementById('hour_chart'));
+        chartHour = new google.charts.Line(document.getElementById('hour_chart'));
         chartDataHour = data;
         redrawHour();
 
@@ -260,7 +269,7 @@ function drawChart() {
         data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
 
-        chartWeek = new google.visualization.LineChart(document.getElementById('week_chart'));
+        chartWeek = new google.charts.Line(document.getElementById('week_chart'));
         chartDataWeek = data;
         redrawWeek();
 }
