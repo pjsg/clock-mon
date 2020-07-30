@@ -1,5 +1,6 @@
 local config = require "config"("config")
 local m = require "mqtt_w"
+local broadcast = require '_data'.broadcast
 
 lastNtpResult = {}
 
@@ -8,21 +9,29 @@ local function printrtc()
   print ('rate', rate)
 end
 
-local clock_data = file.getcontents("clock.data");
+local ok, clock_data = pcall(sjson.decode, file.getcontents("clock.data"))
+
+if not ok then
+  clock_data = nil
+end
+if clock_data then
+  rtctime.set(nil, nil, clock_data.rate)
+end
+
+local ntplog = file.open("ntp.log", "a+")
 
 local function startsync(cb)
     sntp.sync({"192.168.1.20", "192.168.1.21", "0.nodemcu.pool.ntp.org", "1.nodemcu.pool.ntp.org", "2.nodemcu.pool.ntp.org"
     }, function (a,b, c, d ) 
       lastNtpResult = { secs=a, usecs=b, server=c, info=d }
       print(a,b, c, d['offset_us']) printrtc() 
-      m.send({ntp=lastNtpResult})
-      if clock_data then
-        rtctime.set(nil, nil, clock_data.rate)
-        clock_data = nil
-      else
-        local _, _, rate = rtctime.get()
-        file.putcontents("clock.data", sjson.encode({rate=rate}))
-      end
+      local msg = {ntp=lastNtpResult}
+      local _, _, rate = rtctime.get()
+      file.putcontents("clock.data", sjson.encode({rate=rate}))
+      local logmsg = sjson.encode({at=a + b / 1000000, rate=rate, ntp=lastNtpResult})
+      m.send(logmsg)
+      ntplog:writeline(logmsg)
+      broadcast(logmsg)
       cb()
     end, function(e) print (e) end, 1)
 end
@@ -57,6 +66,7 @@ t0:alarm(1000, tmr.ALARM_AUTO, function(t)
    end
    print ("got ip")
    t:unregister()
+   m.connect()
    syslog:send("Booted: " .. sjson.encode({node.bootreason()}))
    node.setcpufreq(node.CPU160MHZ)
    startsync(doOnce(function() require("clockrun") end))

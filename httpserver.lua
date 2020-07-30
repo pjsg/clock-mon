@@ -4,6 +4,7 @@ local H = {}
 
 local function sendDocument(conn, fn, mimeType)
   if fn == nil then
+    collectgarbage()
     conn:send("HTTP/1.0 404 Not found\r\n\r\n")
     conn:on('sent', function (c)
       c:close()
@@ -13,6 +14,7 @@ local function sendDocument(conn, fn, mimeType)
 
   conn:on('sent', function(c)
      local buf = fn()
+     collectgarbage()
      if buf then
        c:send(buf)
      else
@@ -26,6 +28,7 @@ local function sendDocument(conn, fn, mimeType)
   else
     buf = fn()
   end
+  collectgarbage()
   conn:send(buf)
 
   return true
@@ -77,10 +80,13 @@ H["GET/history"] = function(conn)
   return sendfile(conn, "hour.log", "text/plain")
 end
 
+H["GET/ntp"] = function(conn)
+  return sendfile(conn, "ntp.log", "text/plain")
+end
+
 local srv = net.createServer(net.TCP)
 local function onNewConnection(conn)
     conn:on("receive", function(c, request)
-        collectgarbage()
         local _, _, method, path, vars = string.find(request, "([A-Z]+) (.*)?(.+) HTTP")
         if method == nil then
             _, _, method, path = string.find(request, "([A-Z]+) (.*) HTTP")
@@ -92,7 +98,8 @@ local function onNewConnection(conn)
             end
         end
 
-        collectgarbage()
+        local rport, rip = c:getpeer()
+        print("Request from", rip, method, path)
         local f = (H[method .. path])
         if f == nil then
            path = string.sub(path, 2)

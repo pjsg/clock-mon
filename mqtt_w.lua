@@ -8,10 +8,12 @@ local connected = false
 
 local queue = {}
 
-m:on("connect", function() connected = true end)
-m:on("offline", function() connected = false end)
+m:on("connect", function() connected = true print('MQTT Connected') end)
+m:on("offline", function() connected = false print ('MQTT Disconnected') end)
 
-m:connect("neptune.gladstonefamily.net", 1883)
+function M.connect() 
+  m:connect("neptune.gladstonefamily.net", 1883)
+end
 
 function M.send(o)
   local msg = o
@@ -22,6 +24,7 @@ function M.send(o)
   local sent = false
   if connected then
     while queue[1] ~= nil do
+      collectgarbage()
       sent = m:publish("/grandfather", queue[1], 1, 0)
       if not sent then
         break
@@ -29,11 +32,16 @@ function M.send(o)
       print ('Sent', queue[1])
       table.remove(queue, 1)
     end
+    collectgarbage()
     sent = m:publish("/grandfather", msg, 1, 0)
   end
   if not sent then
     print ('Queueing', msg)
     table.insert(queue, msg)
+    if #queue > 10 then
+      queue = {}
+      print ('Flushed queue')
+    end
   end
 end
 

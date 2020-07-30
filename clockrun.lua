@@ -7,6 +7,8 @@ local week = rate:new({size=3 * 24 + 1})
 local hour = rate:new({size=121, every=60, overflow=week})
 local minute = rate:new({size=61, every=30, overflow=hour})
 
+local last_temp 
+
 local function debounce(cb, level)
   local last = 0
   return function(levelx, when, evts)
@@ -51,7 +53,11 @@ local function edge(level, when, evts)
       hourtime = hourtime - 1
       if hourtime <= 0 then
         hourtime = 300
-        hourlog:writeline(sjson.encode({at=msg.at, rate=hour:estimate()}))
+        local temp
+        if last_temp then
+          temp = last_temp.temp
+        end
+        hourlog:writeline(sjson.encode({at=msg.at, rate=hour:estimate(), temp=temp}))
         hourlog:flush()
       end
     end
@@ -87,14 +93,23 @@ function gethistory(which)
   end
 end
 
-tmr.create():alarm(60 * 1000, tmr.ALARM_AUTO, function()
-  pcall(function() 
-    ds18b20.read_temp(function (result) 
-      local sec, usecs = rtctime.get()
-      local data = sjson.encode({temp=result, now=secs + usecs / 1000000})
-      m.send(data)
-      broadcast(data)
-    end, nil, ds18b20.F)
-  end)
+function initiateTemperatureRead() 
+  ds18b20:read_temp(function (result) 
+    local addr, temp = next(result)
+    if last_temp then
+      temp = (temp + last_temp.temp * 9) / 10
+    end
+    local secs, usecs = rtctime.get()
+    last_temp = {temp=temp, at=secs + usecs / 1000000}
+    local data = sjson.encode(last_temp)
+    m.send(data)
+    broadcast(data)
+  end, nil, ds18b20.F)
+end
+
+pcall(initiateTemperatureRead)
+
+tmr.create():alarm(30 * 1000, tmr.ALARM_AUTO, function()
+  pcall(initiateTemperatureRead)
 end)
 

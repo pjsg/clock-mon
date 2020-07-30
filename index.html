@@ -29,13 +29,16 @@ input.narrow {
 
 <br>
 <table>
-<tr><td>Instantaneous&nbsp;</td><td align=right><span id='last'></span></td><td>ppm</td></tr>
-<tr><td>Minute</td><td align=right><span id='minute'></span></td><td>ppm</td></tr>
-<tr><td>Hour</td><td align=right><span id='hour'></span></td><td>ppm</td></tr>
+<tr><td>Instantaneous&nbsp;</td><td align=right><span id='last'></span></td><td>ppm</td><td><span id='lastsecs'></span></td><td>Seconds per day</td></tr>
+<tr><td>Minute</td><td align=right><span id='minute'></span></td><td>ppm</td><td><span id='minutesecs'></span></td><td>Seconds per day</td></tr>
+<tr><td>Hour</td><td align=right><span id='hour'></span></td><td>ppm</td><td><span id='hoursecs'></span></td><td>Seconds per day</td></tr>
+<tr><td>Temperature</td><td align=right><span id='temp'>-</span></td><td>F</td></tr>
+<tr><td>CPU Rate Error</td><td align=right><span id='rate'>-</span></td><td>ppm</td></tr>
 </table>
 <div id="minute_chart" style="height:400px; width:100%"></div>
 <div id="hour_chart" style="height: 400px; width:100%"></div>
 <div id="week_chart" style="height: 400px; width:100%"></div>
+<div id="ntp_chart" style="height: 400px; width:100%"></div>
 <script>
 
 function leftFillNum(num, width){
@@ -44,6 +47,10 @@ function leftFillNum(num, width){
     .padStart(width,0)
 }
 
+var chartNtp;
+var chartDataNtp;
+var lastNtp = 0;
+var sampleNtp = 0;
 var chartWeek;
 var chartDataWeek;
 var lastWeek = 0;
@@ -56,13 +63,29 @@ var chart;
 var chartData;
 var last = 0;
 
+var temperature;
+
+function rateInPpm(rate) {
+  return rate / ((1 << 30) / 250000);
+}
+
 function redrawWeek() {
         var options = {
+          title: 'Average tick error over previous hour',
+          series: {
+            0: {targetAxisIndex: 0},
+            1: {targetAxisIndex: 1}
+          },
+          vAxes: {
+            // Adds titles to each axis.
+            0: {title: 'Tick error (ppm)'},
+            1: {title: 'Temperature (F)'}
+          },
           hAxis: {
             title: 'Time'
           },
-          vAxis: {
-            title: 'Tick error (ppm)'
+          legend: {
+            position: 'none',
           },
           backgroundColor: '#f1f8e9'
         };
@@ -70,6 +93,27 @@ function redrawWeek() {
   if (chartDataWeek.getNumberOfRows() > 0) {
     chartWeek.clearChart();
     chartWeek.draw(chartDataWeek, options);
+  }
+}
+
+function redrawNtp() {
+        var options = {
+          title: 'Average CPU Clock error',
+          hAxis: {
+            title: 'Time'
+          },
+          vAxis: {
+            title: 'Clock error (ppm)'
+          },
+          legend: {
+            position: 'none',
+          },
+          backgroundColor: '#f1f8e9'
+        };
+
+  if (chartDataNtp.getNumberOfRows() > 0) {
+    chartNtp.clearChart();
+    chartNtp.draw(chartDataNtp, options);
   }
 }
 
@@ -119,14 +163,39 @@ window.onresize = function() {
   redraw();
   redrawHour();
   redrawWeek();
+  redrawNtp();
 }
 
+function getTemperature(now) {
+  if (temperature && temperature.at > now - 120) {
+    return temperature.temp;
+  }
+  return null;
+}
 
 function dt(secs) {
   return new Date(secs * 1000)
 }
 
+function setRate(which, rate) {
+  $('#' + which).text(sprintf("%.1f", rate));
+  $('#' + which + 'secs').text(sprintf("%.1f", rate * 86400 / 1000000));
+
+}
+
 function handleResponse( result ) {
+      if (result.temp) {
+        temperature = result;
+        $('#temp').text(sprintf("%.1f", temperature.temp));
+      }
+      if (result.rate) {
+        $('#rate').text(sprintf("%.1f", rateInPpm(result.rate)));
+        chartDataNtp.addRow([dt(result.at), rateInPpm(result.rate)]);
+        while (chartDataNtp.getNumberOfRows() > 2000) {
+          chartDataNtp.removeRow(0);
+        }
+        redrawNtp();
+      }
       if (result.stats) {
         $('#last').text('-');
         $('#minute').text('-');
@@ -134,7 +203,7 @@ function handleResponse( result ) {
         var now = result.stats.now;
         if (result.stats.last) {
           var value = (result.stats.last - 1) * 1000000;
-          $('#last').text(sprintf("%.1f", value));
+          setRate('last', value);
           if (chartData) {
             if (now != last) {
               chartData.addRow([dt(now), value]);
@@ -148,7 +217,7 @@ function handleResponse( result ) {
         }
         if (result.stats.minute) {
           var value = (result.stats.minute - 1) * 1000000;
-          $('#minute').text(sprintf("%.1f", value));
+          setRate('minute', value);
           if (chartDataHour) {
             sampleHour = sampleHour + 1;
             if (sampleHour % 30 == 0) {
@@ -163,11 +232,11 @@ function handleResponse( result ) {
         }
         if (result.stats.hour) {
           var value = (result.stats.hour - 1) * 1000000;
-          $('#hour').text(sprintf("%.1f", value));
+          setRate('hour', value);
           if (chartDataWeek) {
             sampleWeek = sampleWeek + 1;
             if (sampleWeek % 300 == 0) {
-              chartDataWeek.addRow([dt(now), value]);
+              chartDataWeek.addRow([dt(now), value, getTemperature(now)]);
               lastWeek = now;
               while (chartDataWeek.getNumberOfRows() > 2000) {
                 chartDataWeek.removeRow(0);
@@ -205,7 +274,29 @@ function handleResponse( result ) {
 }
 
 function addToWeek(data) {
-  chartDataWeek.addRow([dt(data.at), (data.rate - 1) * 1000000]);
+  chartDataWeek.addRow([dt(data.at), (data.rate - 1) * 1000000, data.temp]);
+}
+
+function addToNtp(data) {
+  chartDataNtp.addRow([dt(data.at), rateInPpm(data.rate)]);
+}
+
+function loadNtp(next) {
+  $.ajax({
+    url: "/ntp",
+    dataType: "text",
+  }).done(function (data) {
+    var lines = data.split("\n");
+    for (var i = 0; i < lines.length; i++) {
+      try {
+        addToNtp(JSON.parse(lines[i]));
+      } catch (e) {
+        console.log("Failed to parse '" + lines[i] + "'");
+      }
+    }
+    redrawNtp();
+    next();
+  });
 }
 
 function loadHistory(next) {
@@ -261,22 +352,31 @@ function drawChart() {
         data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
 
-        chartHour = new google.charts.Line(document.getElementById('hour_chart'));
+        chartHour = new google.visualization.LineChart(document.getElementById('hour_chart'));
         chartDataHour = data;
         redrawHour();
 
         data = new google.visualization.DataTable();
         data.addColumn('datetime', 'Date');
         data.addColumn('number', 'Tick');
+        data.addColumn('number', 'Temperature');
 
-        chartWeek = new google.charts.Line(document.getElementById('week_chart'));
+        chartWeek = new google.visualization.LineChart(document.getElementById('week_chart'));
         chartDataWeek = data;
         redrawWeek();
+
+        data = new google.visualization.DataTable();
+        data.addColumn('datetime', 'Date');
+        data.addColumn('number', 'Rate');
+
+        chartNtp = new google.visualization.LineChart(document.getElementById('ntp_chart'));
+        chartDataNtp = data;
+        redrawNtp();
 }
 
 function startup() {
   drawChart();
-  loadHistory(refresh);
+  loadNtp(function() { loadHistory(refresh) } );
 }
 
 $(document).ready(function() {
