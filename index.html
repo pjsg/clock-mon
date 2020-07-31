@@ -2,6 +2,7 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sprintf/1.1.2/sprintf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
 <style>
 body {
   font-family: sans-serif;
@@ -34,6 +35,7 @@ input.narrow {
 <tr><td>Hour</td><td align=right><span id='hour'></span></td><td>ppm</td><td><span id='hoursecs'></span></td><td>Seconds per day</td></tr>
 <tr><td>Temperature</td><td align=right><span id='temp'>-</span></td><td>F</td></tr>
 <tr><td>CPU Rate Error</td><td align=right><span id='rate'>-</span></td><td>ppm</td></tr>
+<tr><td>Boot time</td><td align=left colspan=4><span id='boot'>-</span></td></tr>
 </table>
 <div id="minute_chart" style="height:400px; width:100%"></div>
 <div id="hour_chart" style="height: 400px; width:100%"></div>
@@ -183,102 +185,117 @@ function setRate(which, rate) {
 
 }
 
+function addRowTo(data, row, maxintvl) {
+  // Check to see if we should insert a null row
+  var lastRow = data.getNumberOfRows() - 1;
+  if (lastRow >= 0) {
+    var lastRowTime = data.getValue(lastRow, 0);
+
+    if (row[0] <= lastRowTime) {
+      return;
+    }
+
+    if (row[0] - lastRowTime > maxintvl * 1000) {
+      var nullRow = [new Date(lastRowTime + 1)];
+      for (var i = 1; i < row.length; i++) {
+        nullRow.push(null);
+      }
+      data.addRow(nullRow);
+    }
+  }
+
+  data.addRow(row);
+  while (data.getNumberOfRows() > 2000) {
+    data.removeRow(0);
+  }
+}
+
 function handleResponse( result ) {
-      if (result.temp) {
-        temperature = result;
-        $('#temp').text(sprintf("%.1f", temperature.temp));
+  if (result.boottime) {
+    var boot = moment.unix(result.boottime);
+    $('#boot').text(boot.format());
+  }
+  if (result.temp) {
+    temperature = result;
+    $('#temp').text(sprintf("%.1f", temperature.temp));
+  }
+  if (result.rate) {
+    $('#rate').text(sprintf("%.1f", rateInPpm(result.rate)));
+    addRowTo(chartDataNtp, [dt(result.at), rateInPpm(result.rate)], 1500);
+    redrawNtp();
+  }
+  if (result.stats) {
+    $('#last').text('-');
+    $('#minute').text('-');
+    $('#hour').text('-');
+    var now = result.stats.now;
+    if (result.stats.last) {
+      var value = (result.stats.last - 1) * 1000000;
+      setRate('last', value);
+      if (chartData) {
+        addRowTo(chartData, [dt(now), value], 10);
+        last = now;
+        redraw();
       }
-      if (result.rate) {
-        $('#rate').text(sprintf("%.1f", rateInPpm(result.rate)));
-        chartDataNtp.addRow([dt(result.at), rateInPpm(result.rate)]);
-        while (chartDataNtp.getNumberOfRows() > 2000) {
-          chartDataNtp.removeRow(0);
-        }
-        redrawNtp();
-      }
-      if (result.stats) {
-        $('#last').text('-');
-        $('#minute').text('-');
-        $('#hour').text('-');
-        var now = result.stats.now;
-        if (result.stats.last) {
-          var value = (result.stats.last - 1) * 1000000;
-          setRate('last', value);
-          if (chartData) {
-            if (now != last) {
-              chartData.addRow([dt(now), value]);
-              last = now;
-              while (chartData.getNumberOfRows() > 2000) {
-                chartData.removeRow(0);
-              }
-              redraw();
-            }
-          }
-        }
-        if (result.stats.minute) {
-          var value = (result.stats.minute - 1) * 1000000;
-          setRate('minute', value);
-          if (chartDataHour) {
-            sampleHour = sampleHour + 1;
-            if (sampleHour % 30 == 0) {
-              chartDataHour.addRow([dt(now), value]);
-              lastHour = now;
-              while (chartDataHour.getNumberOfRows() > 2000) {
-                chartDataHour.removeRow(0);
-              }
-              redrawHour();
-            }
-          }
-        }
-        if (result.stats.hour) {
-          var value = (result.stats.hour - 1) * 1000000;
-          setRate('hour', value);
-          if (chartDataWeek) {
-            sampleWeek = sampleWeek + 1;
-            if (sampleWeek % 300 == 0) {
-              chartDataWeek.addRow([dt(now), value, getTemperature(now)]);
-              lastWeek = now;
-              while (chartDataWeek.getNumberOfRows() > 2000) {
-                chartDataWeek.removeRow(0);
-              }
-              redrawWeek();
-            }
-          }
+    }
+    if (result.stats.minute) {
+      var value = (result.stats.minute - 1) * 1000000;
+      setRate('minute', value);
+      if (chartDataHour) {
+        sampleHour = sampleHour + 1;
+        if (sampleHour % 30 == 0) {
+          addRowTo(chartDataHour, [dt(now), value], 120);
+          lastHour = now;
+          redrawHour();
         }
       }
-      if (result.history) {
-        var now = result.history.now;
-        if (result.history.minute) {
-          if (chartData) {
-            var arr = result.history.minute;
-            last = now - 2 * arr.length;
-            for (var i = 0; i < arr.length; i++) {
-              last = last + 2;
-              chartData.addRow([dt(last), (arr[i] - 1) * 1000000]);
-            }
-            redraw();
-          }
-        }
-        if (result.history.hour) {
-          if (chartDataHour) {
-            var arr = result.history.hour;
-            lastHour = now - 60 * arr.length;
-            for (var i = 0; i < arr.length; i++) {
-              lastHour = lastHour + 60;
-              chartDataHour.addRow([dt(lastHour), (arr[i] - 1) * 1000000]);
-            }
-            redrawHour();
-          }
+    }
+    if (result.stats.hour) {
+      var value = (result.stats.hour - 1) * 1000000;
+      setRate('hour', value);
+      if (chartDataWeek) {
+        sampleWeek = sampleWeek + 1;
+        if (sampleWeek % 300 == 0) {
+          addRowTo(chartDataWeek, [dt(now), value, getTemperature(now)], 900);
+          lastWeek = now;
+          redrawWeek();
         }
       }
+    }
+  }
+  if (result.history) {
+    var now = result.history.now;
+    if (result.history.minute) {
+      if (chartData) {
+        var arr = result.history.minute;
+        last = now - 2 * arr.length;
+        for (var i = 0; i < arr.length; i++) {
+          last = last + 2;
+          addRowTo(chartData, [dt(last), (arr[i] - 1) * 1000000], 10);
+        }
+        redraw();
+      }
+    }
+    if (result.history.hour) {
+      if (chartDataHour) {
+        var arr = result.history.hour;
+        lastHour = now - 60 * arr.length;
+        for (var i = 0; i < arr.length; i++) {
+          lastHour = lastHour + 60;
+          addRowTo(chartDataHour, [dt(lastHour), (arr[i] - 1) * 1000000], 120);
+        }
+        redrawHour();
+      }
+    }
+  }
 }
 
 function addToWeek(data) {
-  chartDataWeek.addRow([dt(data.at), (data.rate - 1) * 1000000, data.temp]);
+  addRowTo(chartDataWeek, [dt(data.at), (data.rate - 1) * 1000000, data.temp], 900);
 }
 
 function addToNtp(data) {
-  chartDataNtp.addRow([dt(data.at), rateInPpm(data.rate)]);
+  addRowTo(chartDataNtp, [dt(data.at), rateInPpm(data.rate)], 1500);
 }
 
 function loadNtp(next) {

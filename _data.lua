@@ -13,6 +13,9 @@ M.serve = function (socket)
   tmr.create():alarm(1500, tmr.ALARM_SINGLE, function()
     socket.send(sjson.encode({history=gethistory('week')}), 1)
   end)
+  tmr.create():alarm(2500, tmr.ALARM_SINGLE, function()
+    socket.send(sjson.encode({boottime=getboottime()}), 1)
+  end)
   sockets[socket] = 1
 end
 

@@ -10,6 +10,11 @@ local function printrtc()
 end
 
 local ok, clock_data = pcall(sjson.decode, file.getcontents("clock.data"))
+local boottime
+
+function getboottime()
+  return boottime
+end
 
 if not ok then
   clock_data = nil
@@ -25,6 +30,9 @@ local function startsync(cb)
     }, function (a,b, c, d ) 
       lastNtpResult = { secs=a, usecs=b, server=c, info=d }
       print(a,b, c, d['offset_us']) printrtc() 
+      if not boottime then
+        boottime = a + b / 1000000
+      end
       local msg = {ntp=lastNtpResult}
       local _, _, rate = rtctime.get()
       file.putcontents("clock.data", sjson.encode({rate=rate}))

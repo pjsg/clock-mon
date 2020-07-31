@@ -25,6 +25,7 @@ return function(close_cb)
     local function sendack(port, ip, c,n)
         local msb = math.floor(n/256) --assumes int firmware
         local lsb = n - msb*256
+        collectgarbage()
         c:send(port, ip, "\0\4"..string.char(msb, lsb))
     end
 
@@ -33,6 +34,7 @@ return function(close_cb)
         local lsb = _tblk - msb*256
         local b=string.char(msb, lsb)
 
+        collectgarbage()
         if(file.open(_fn,"r")==nil) then
             c:send(port, ip, "\0\5\0\1\0") --Error: 1=file not found
             reset()
@@ -164,6 +166,7 @@ return function(close_cb)
             end
         else
             --ERROR: 4=illegal op
+            collectgarbage()
             c:send(port, ip, "\0\5\0\4\0")
             return
         end
