@@ -96,7 +96,12 @@ return function(close_cb)
         elseif(op==3 or op==4) then
             local b=r:byte(3)*256+r:byte(4)
             if(b~=_tblk) then
-                return
+                if b == _tblk - 1 then
+                  uart.write('B')
+                  _tblk = b
+                else
+                  return
+                end
             end
             alarmstop()
             _retry= _retry_max

@@ -1,4 +1,5 @@
 <html><head>
+<link rel="icon" type="image/x-icon" href="https://pskreporter.info/clockicon.ico">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sprintf/1.1.2/sprintf.min.js"></script>
@@ -65,10 +66,44 @@ var chart;
 var chartData;
 var last = 0;
 
+var chartsCurrentlyDrawing = 0;
+
 var temperature;
 
 function rateInPpm(rate) {
   return rate / ((1 << 30) / 250000);
+}
+
+var pendingDraws = {};
+
+function tryDrawing() {
+  if (chartsCurrentlyDrawing == 0) {
+    for (var chart in pendingDraws) {
+      pendingDraws[chart]();
+      delete pendingDraws[chart];
+      return;
+    }
+  }
+}
+
+function doDraw(chart, data, options) {
+  if (data.getNumberOfRows() > 0) {
+    pendingDraws[chart] = function () {
+      chart.clearChart();
+      chartsCurrentlyDrawing = chartsCurrentlyDrawing + 1;
+      chart.draw(data, options);
+    };
+    tryDrawing();
+  }
+}
+
+function drawingComplete() {
+  if (chartsCurrentlyDrawing <= 0) {
+    console.log("chartsCurrentlyDrawing = " + chartsCurrentlyDrawing);
+    return;
+  }
+  chartsCurrentlyDrawing = chartsCurrentlyDrawing - 1;
+  window.setTimeout(tryDrawing, 10);
 }
 
 function redrawWeek() {
@@ -92,10 +127,7 @@ function redrawWeek() {
           backgroundColor: '#f1f8e9'
         };
 
-  if (chartDataWeek.getNumberOfRows() > 0) {
-    chartWeek.clearChart();
-    chartWeek.draw(chartDataWeek, options);
-  }
+  doDraw(chartWeek, chartDataWeek, options);
 }
 
 function redrawNtp() {
@@ -113,10 +145,7 @@ function redrawNtp() {
           backgroundColor: '#f1f8e9'
         };
 
-  if (chartDataNtp.getNumberOfRows() > 0) {
-    chartNtp.clearChart();
-    chartNtp.draw(chartDataNtp, options);
-  }
+  doDraw(chartNtp, chartDataNtp, options);
 }
 
 function redrawHour() {
@@ -134,10 +163,7 @@ function redrawHour() {
           backgroundColor: '#f1f8e9'
         };
 
-  if (chartDataHour.getNumberOfRows() > 0) {
-    chartHour.clearChart();
-    chartHour.draw(chartDataHour, options);
-  }
+  doDraw(chartHour, chartDataHour, options);
 }
 
 function redraw() {
@@ -155,10 +181,7 @@ function redraw() {
           backgroundColor: '#f1f8e9'
         };
 
-  if (chartData.getNumberOfRows() > 0) {
-    chart.clearChart();
-    chart.draw(chartData, options);
-  }
+  doDraw(chart, chartData, options);
 }
 
 window.onresize = function() {
@@ -304,13 +327,14 @@ function loadNtp(next) {
     dataType: "text",
   }).done(function (data) {
     var lines = data.split("\n");
-    for (var i = 0; i < lines.length; i++) {
+    for (var i = 0; i < lines.length - 1; i++) {
       try {
         addToNtp(JSON.parse(lines[i]));
       } catch (e) {
-        console.log("Failed to parse '" + lines[i] + "'");
+        console.log("Failed to parse '" + lines[i] + "': " + e);
       }
     }
+    console.log("Added " + chartDataNtp.getNumberOfRows() + " to NTP Chart");
     redrawNtp();
     next();
   });
@@ -322,13 +346,14 @@ function loadHistory(next) {
     dataType: "text",
   }).done(function (data) {
     var lines = data.split("\n");
-    for (var i = 0; i < lines.length; i++) {
+    for (var i = 0; i < lines.length - 1; i++) {
       try {
         addToWeek(JSON.parse(lines[i]));
       } catch (e) {
-        console.log("Failed to parse '" + lines[i] + "'");
+        console.log("Failed to parse '" + lines[i] + "': " + e);
       }
     }
+    console.log("Added " + chartDataWeek.getNumberOfRows() + " to Hour Chart");
     redrawWeek();
     next();
   });
@@ -337,7 +362,7 @@ function loadHistory(next) {
 var timeout_close;
 var timeout_error;
 
-function refresh() {
+function refresh(onretry) {
     var ws = new WebSocket("ws://" + window.location.host + "/data");
     ws.onmessage = function(event) {
       handleResponse(JSON.parse(event.data));
@@ -346,14 +371,18 @@ function refresh() {
       ws.onerror = null;
       ws.onclose = null;
       ws.close();
-      timeout_error = window.setTimeout(refresh, 5000);
+      timeout_error = window.setTimeout(onretry, 5000);
     };
     ws.onclose = function() {
       ws.onerror = null;
       ws.onclose = null;
       ws.close();
-      timeout_close = window.setTimeout(refresh, 5000);
+      timeout_close = window.setTimeout(onretry, 5000);
     };
+}
+
+function loadData() {
+  loadNtp(function() { loadHistory(function() { refresh(loadData) }) });
 }
 
 function drawChart() {
@@ -362,6 +391,7 @@ function drawChart() {
         data.addColumn('number', 'Tick');
 
         chart = new google.visualization.LineChart(document.getElementById('minute_chart'));
+        google.visualization.events.addListener(chart, 'ready', drawingComplete);
         chartData = data;
         redraw();
 
@@ -370,6 +400,7 @@ function drawChart() {
         data.addColumn('number', 'Tick');
 
         chartHour = new google.visualization.LineChart(document.getElementById('hour_chart'));
+        google.visualization.events.addListener(chartHour, 'ready', drawingComplete);
         chartDataHour = data;
         redrawHour();
 
@@ -379,6 +410,7 @@ function drawChart() {
         data.addColumn('number', 'Temperature');
 
         chartWeek = new google.visualization.LineChart(document.getElementById('week_chart'));
+        google.visualization.events.addListener(chartWeek, 'ready', drawingComplete);
         chartDataWeek = data;
         redrawWeek();
 
@@ -387,13 +419,14 @@ function drawChart() {
         data.addColumn('number', 'Rate');
 
         chartNtp = new google.visualization.LineChart(document.getElementById('ntp_chart'));
+        google.visualization.events.addListener(chartNtp, 'ready', drawingComplete);
         chartDataNtp = data;
         redrawNtp();
 }
 
 function startup() {
   drawChart();
-  loadNtp(function() { loadHistory(refresh) } );
+  loadData();
 }
 
 $(document).ready(function() {
