@@ -218,6 +218,10 @@ function addRowTo(data, row, maxintvl) {
       return;
     }
 
+    if (row[1] > 2000 || row[1] < -2000) {
+      row[1] = null;
+    }
+
     if (row[0] - lastRowTime > maxintvl * 1000) {
       var nullRow = [new Date(lastRowTime + 1)];
       for (var i = 1; i < row.length; i++) {
