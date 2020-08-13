@@ -1,8 +1,16 @@
 local M = {}
 
+local m = require 'mqtt_w'
+
 local Rate = {}
 
 function Rate:push(v)
+  if #self.prev > 0 and self.post then
+    local msg = {}
+    msg[self.post] = (v - self.prev[#self.prev]) / self.div
+    msg[self.post .. "_ppm"] = (msg[self.post] - 1) * 1000000
+    m.send("processed/data", msg)
+  end
   table.insert(self.prev, v)
   if #self.prev > self.size then
     table.remove(self.prev, 1)

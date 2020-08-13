@@ -1,6 +1,7 @@
 if file.exists("forcelfs.img") then
   file.remove("lfs.img")
   file.rename("forcelfs.img", "lfs.img")
+  file.remove("index.html")
   rtcmem.write32(0, 0x12345678)
   local result = node.flashreload("lfs.img")
   print("Failed to flashreload", result)

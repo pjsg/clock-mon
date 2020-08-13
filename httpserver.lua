@@ -68,21 +68,19 @@ function sendfile(conn, fn, mimeType)
   if rdr then
     return sendDocument(conn, rdr, mimeType)
   end
-
-  return false
 end
 
 H["GET/"] = function(conn)
   return sendfile(conn, "index.html")
 end
 
-H["GET/history"] = function(conn)
-  return sendfile(conn, "hour.log", "text/plain")
-end
+--H["GET/history"] = function(conn)
+--  return sendfile(conn, "hour.log", "text/plain")
+--end
 
-H["GET/ntp"] = function(conn)
-  return sendfile(conn, "ntp.log", "text/plain")
-end
+--H["GET/ntp"] = function(conn)
+--  return sendfile(conn, "ntp.log", "text/plain")
+--end
 
 local srv = net.createServer(net.TCP)
 local function onNewConnection(conn)

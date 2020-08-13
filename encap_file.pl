@@ -45,6 +45,10 @@ while (my $fn = shift @ARGV) {
 
   my $out = join('', @out);
 
+  open(W, ">$fn.proc");
+  print W $out;
+  close(W);
+
   print OUT "-- Byte count is ", length($out), "\n";
 
   while (length($out)) {
