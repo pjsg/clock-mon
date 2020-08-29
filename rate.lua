@@ -8,7 +8,7 @@ function Rate:push(v)
   if #self.prev > 0 and self.post then
     local msg = {}
     msg[self.post] = (v - self.prev[#self.prev]) / self.div
-    msg[self.post .. "_ppm"] = (msg[self.post] - 1) * 1000000
+    msg[self.post .. "_ppm"] = (1 - msg[self.post]) * 1000000
     m.send("processed/data", msg)
   end
   table.insert(self.prev, v)

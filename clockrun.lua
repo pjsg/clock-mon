@@ -58,7 +58,7 @@ local function edge(level, when, evts)
         end
 
         local therate = hour:estimate()
-        local msg = sjson.encode({at=msg.at, hour=therate, hour_ppm=(therate - 1) * 1000000, temp=temp})
+        local msg = sjson.encode({at=msg.at, hour=therate, hour_ppm=(1 - therate) * 1000000, temp=temp})
 
         --hourlog:writeline(msg)
         --hourlog:flush()
