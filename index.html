@@ -43,9 +43,6 @@ input.narrow {
 <div id="hour_chart" style="height: 400px; width:100%"></div>
 <div id="week_chart" style="height: 400px; width:100%"></div>
 <div id="ntp_chart" style="height: 400px; width:100%"></div>
-<div style="width: 600px; height: 600px">
-<canvas id="radar"></canvas>
-</div>
 <script>
 
 function leftFillNum(num, width){
@@ -54,9 +51,6 @@ function leftFillNum(num, width){
     .padStart(width,0)
 }
 
-var radarChart;
-var radarData;
-var radarRaw;
 var chartNtp;
 var chartDataNtp;
 var lastNtp = 0;
@@ -192,19 +186,6 @@ function redraw() {
   doDraw(chart, chartData, options);
 }
 
-function addToRadar(pos, value, noupdate) {
-  if (Math.abs(value) > 1000) {
-    return;
-  }
-  pos = pos % 30;
-  radarRaw[pos].total += value;
-  radarRaw[pos].count += 1;
-  radarData[pos] = radarRaw[pos].total / radarRaw[pos].count;
-  if (!noupdate) {
-    radarChart.update();
-  }
-}
-
 window.onresize = function() {
   redraw();
   redrawHour();
@@ -285,7 +266,6 @@ function handleResponse( result ) {
       setRate('last', value);
       if (chartData) {
         addRowTo(chartData, [dt(now), value], 10, 1000);
-        addToRadar(tickPos, value);
         tickPos += 1;
         last = now;
         redraw();
@@ -325,7 +305,6 @@ function handleResponse( result ) {
         for (var i = 0; i < arr.length; i++) {
           last = last + 2;
           addRowTo(chartData, [dt(last), (arr[i] - 1) * 1000000], 10, 1000);
-          addToRadar(tickPos, (arr[i] - 1) * 1000000, true);
           tickPos += 1;
         }
         redraw();
@@ -455,30 +434,6 @@ function drawChart() {
         chartDataNtp = data;
         redrawNtp();
 
-        radarData = [];
-        radarRaw = [];
-        var labels = [];
-        for (var i = 0; i < 30; i++) {
-          radarData.push(null);
-          radarRaw.push({ count: 0, total: 0});
-          labels.push(i * 2);
-        }
-
-        radarChart = new Chart('radar', {
-          type: 'radar',
-          options: {
-            aspectRatio: 1,
-          },
-          data: {
-            labels: labels,
-            datasets:[{
-              data: radarData,
-              label: 'Tick error (ppm)',
-              fill: false,
-              borderColor: 'rgba(0, 0, 255, 0.5)',
-            }],
-          },
-        });
 }
 
 function startup() {
