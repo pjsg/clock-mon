@@ -3,11 +3,11 @@ if file.exists("forcelfs.img") then
   file.rename("forcelfs.img", "lfs.img")
   file.remove("index.html")
   rtcmem.write32(0, 0x12345678)
-  local result = node.flashreload("lfs.img")
-  print("Failed to flashreload", result)
+  local result = node.LFS.reload("lfs.img")
+  print("Failed to LFS.reload", result)
 end
 
-package.loaders[3] = function(module) return LFS[module] end
+package.loaders[3] = function(module) return node.LFS.get(module) end
 
 tmr.create():alarm(300 * 1000, tmr.ALARM_SINGLE, function() 
   rtcmem.write32(0, 0x12345678)
@@ -54,3 +54,7 @@ tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
     tmr.create():alarm(1000 * 300, tmr.ALARM_SINGLE, startapp)
   end
 end)
+
+require 'dumpit'
+
+tmr.create():alarm(1000 * 180, tmr.ALARM_SINGLE, function () if wifi.sta.getip() == nil then dumpit() end end)

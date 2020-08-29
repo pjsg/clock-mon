@@ -3,8 +3,7 @@ local rate = require 'rate'
 local broadcast = require '_data'.broadcast
 local ok, ds18b20 = pcall(require,'ds18b20')
 
-local week = rate:new({size=24 + 1})
-local hour = rate:new({size=121, every=60, overflow=week, post="tick_min", div=60})
+local hour = rate:new({size=121, every=60, post="tick_min", div=60})
 local minute = rate:new({size=61, every=30, overflow=hour, post="tick_now", div=2})
 
 local last_temp 
@@ -91,10 +90,8 @@ end
 function gethistory(which) 
   if which == "minute" then
     return {now=minute:now(), minute=minute:getHistory()}
-  elseif which == "hour" then
-    return {now=hour:now(), hour=hour:getHistory(30)}
   else
-    return {now=week:now(), week=week:getHistory(1800)}
+    return {now=hour:now(), hour=hour:getHistory(30)}
   end
 end
 

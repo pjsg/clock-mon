@@ -23,7 +23,7 @@ local function getStatus()
   R.ntp = lastNtpResult
   R.freemem = node.heap()
   R.mac = wifi.sta.getmac()
-  R.sw_build, _ = node.flashindex()
+  -- R.sw_build, _ = node.LFS.index()
   local _,_,info = node.info("sw_version")
   if info then
     R.hw_build = info
