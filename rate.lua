@@ -1,6 +1,7 @@
 local M = {}
 
 local m = require 'mqtt_w'
+local stats = require 'stats'
 
 local Rate = {}
 
@@ -43,11 +44,16 @@ function Rate:estimate()
   if first < 1 then
     first = 1
   end
-  local duration = self.prev[last] - self.prev[first]
-  local step = self.prev[2] - self.prev[1]
-  -- this should be roughly a multiple of 2
-  step = math.floor((step + 1) / 2) * 2
-  return duration / (step * (last - first))
+  if self.div > 0 then
+    local duration = self.prev[last] - self.prev[first]
+    local step = self.prev[2] - self.prev[1]
+    -- this should be roughly a multiple of 2
+    step = math.floor((step + 1) / 2) * 2
+    return duration / (step * (last - first))
+  else
+    local mean = stats.mean(self.prev)
+    return mean
+  end
   end)
   if ok then
     return res

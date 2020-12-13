@@ -9,6 +9,25 @@ end
 
 package.loaders[3] = function(module) return node.LFS.get(module) end
 
+ws2812.init()
+intensity = 1
+local colors = {off=string.char(0,0,0), red=string.char(0, 255, 0), green=string.char(255,0,0), blue=string.char(0,0,255)}
+local buffer = ws2812.newBuffer(3, 3)
+buffer:fill(0, 0, 0)
+function setled(led, color)
+  buffer:set(led, colors[color])
+  local temp = ws2812.newBuffer(3, 3)
+  temp:mix(intensity * 255, buffer)
+  ws2812.write(temp)
+end
+setled(1, 'red')
+
+gpio.mode(8, gpio.OUTPUT)
+gpio.write(8, 1)
+
+i2c.setup(0, 3, 5, i2c.FAST)
+
+
 tmr.create():alarm(300 * 1000, tmr.ALARM_SINGLE, function() 
   rtcmem.write32(0, 0x12345678)
 end)
@@ -24,6 +43,7 @@ function newlfsimage(fn)
 end
 
 function startapp()
+    setled(1, 'off')
     wifi.setmode(wifi.STATION)
     require("clockinit")
     pcall(function ()
@@ -47,6 +67,7 @@ tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
     -- fast reboot. probably not working
     print("Fast reboot, probably not working....")
     pcall(function ()
+      setled(1, 'green')
       wifi.setmode(wifi.STATION)
       require("tftpd")(newlfsimage)
     end)

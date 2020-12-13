@@ -97,7 +97,7 @@ return function(close_cb)
             local b=r:byte(3)*256+r:byte(4)
             if(b~=_tblk) then
                 if b == _tblk - 1 then
-                  uart.write('B')
+                  uart.write(0, 'B')
                   _tblk = b
                 else
                   return
@@ -186,6 +186,7 @@ return function(close_cb)
 
     tmr.create():alarm(1000, tmr.ALARM_AUTO, function (t) 
       if wifi.sta.getip() ~= nil then
+        setled(1, 'off')
         pcall(startit)
 	t:stop()
       end

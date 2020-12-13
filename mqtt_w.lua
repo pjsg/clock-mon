@@ -2,7 +2,7 @@
 --
 local M = {}
 
-local m = mqtt.Client("grandfather")
+local m = mqtt.Client(string.format("clockmon-%06x", node.chipid()))
 
 local connected = false
 
