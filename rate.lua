@@ -47,8 +47,8 @@ function Rate:estimate()
   if self.div > 0 then
     local duration = self.prev[last] - self.prev[first]
     local step = self.prev[2] - self.prev[1]
-    -- this should be roughly a multiple of 2
-    step = math.floor((step + 1) / 2) * 2
+    -- this should be roughly a multiple of div
+    step = math.floor((step + self.div / 2) / self.div) * self.div
     return duration / (step * (last - first))
   else
     local mean = stats.mean(self.prev)

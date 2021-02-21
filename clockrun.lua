@@ -1,12 +1,18 @@
+local config = require "config"("config")
 local m = require "mqtt_w"
 local rate = require 'rate'
 local broadcast = require '_data'.broadcast
 local ok, ds18b20 = pcall(require,'ds18b20')
 
-local hour = {left=rate:new({size=121, every=60, post="tick_min", div=60}),
-              speed=rate:new({size=61, every=60})}
-local minute = {left=rate:new({size=61, every=30, overflow=hour.left, post="tick_now", div=2}),
-                speed=rate:new({size=31, every=30, overflow=hour.speed})}
+local pendulum_period = config.pendulum_period_(2)
+
+local ticks_per_minute = math.round(60 / pendulum_period)
+local minutes_per_hour = math.round(3600 / pendulum_period) / ticks_per_minute
+
+local hour = {left=rate:new({size=2 * minutes_per_hour + 1, every=minutes_per_hour, post="tick_min", div=minutes_per_hour}),
+              speed=rate:new({size=minutes_per_hour + 1, every=minutes_per_hour})}
+local minute = {left=rate:new({size=ticks_per_minute * 2 + 1, every=ticks_per_minute, overflow=hour.left, post="tick_now", div=pendulum_period}),
+                speed=rate:new({size=ticks_per_minute + 1, every=ticks_per_minute, overflow=hour.speed})}
 
 local last_temp 
 local last_pressure 
@@ -60,7 +66,7 @@ local function edge(when, evts, side)
   msg.last_side_time = sec
 
   if side == 'left' then
-    if sec > msg.last + 1 then
+    if sec > msg.last + pendulum_period / 2 then
       if msg.last > 0 and skip < 0 then
 	local s = sjson.encode({at=msg.at,edge=msg.edge, speed=msg.last_speed})
 	m.send("tick", s)

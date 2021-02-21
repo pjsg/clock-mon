@@ -40,6 +40,9 @@ function M.register(adder)
   addjson("/status", getStatus)
   
   adder("POST", "/set", function (conn, vars)
+    if vars.pendulum_period then
+      config.pendulum_period = vars.pendulum_period
+    end
     wrapit(getStatus)(conn)
   end)
 end

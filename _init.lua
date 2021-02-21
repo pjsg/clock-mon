@@ -9,7 +9,6 @@ end
 
 package.loaders[3] = function(module) return node.LFS.get(module) end
 
-ws2812.init()
 intensity = 1
 local colors = {off=string.char(0,0,0), red=string.char(0, 255, 0), green=string.char(255,0,0), blue=string.char(0,0,255)}
 local buffer = ws2812.newBuffer(3, 3)
@@ -18,7 +17,13 @@ function setled(led, color)
   buffer:set(led, colors[color])
   local temp = ws2812.newBuffer(3, 3)
   temp:mix(intensity * 255, buffer)
+  ws2812.init()
   ws2812.write(temp)
+  -- Now shut off the blue LED
+  tmr.create():alarm(100, tmr.ALARM_SINGLE, function ()
+    gpio.mode(4, gpio.OUTPUT)
+    gpio.write(4, 1)
+  end)
 end
 setled(1, 'red')
 

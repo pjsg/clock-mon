@@ -99,9 +99,9 @@ return function(close_cb)
                 if b == _tblk - 1 then
                   uart.write(0, 'B')
                   _tblk = b
-                else
-                  return
+                  sendack(port, ip, c,_tblk)
                 end
+                return
             end
             alarmstop()
             _retry= _retry_max
