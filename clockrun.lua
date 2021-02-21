@@ -17,17 +17,6 @@ local minute = {left=rate:new({size=ticks_per_minute * 2 + 1, every=ticks_per_mi
 local last_temp 
 local last_pressure 
 
-local function debounce(cb, level)
-  local last = 0
-  return function(levelx, when, evts)
-    if bit.band(when - last, 0xffffff) > 40000 then
-      -- Get this out of the initial callback -- must not spend too long here
-      node.task.post(node.task.MEDIUM_PRIORITY, function () cb(level, when, evts) end)
-    end
-    last = when
-  end
-end
-
 local function bind_pin(cb, side)
   local last = 0
   return function(levelx, when, evts)
